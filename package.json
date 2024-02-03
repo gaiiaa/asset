@@ -1,0 +1,44 @@
+{
+  "name": "@gaiiaa/assets",
+  "version": "0.0.1",
+  "description": "lightweight typescript asset loader",
+  "repository": "@gaiiaa/assets",
+  "publishConfig": {
+    "access": "public"
+  },
+  "license": "MIT",
+  "sideEffects": false,
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./lol": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "dev": "tsx --watch src",
+    "play": "tsx --watch playground",
+    "build": "node build",
+    "test": "vitest run",
+    "lint": "oxlint",
+    "format": "prettier -w src playground",
+    "release": "node build && changelogen --release && npm publish && git push --follow-tags"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^0.34.6",
+    "changelogen": "^0.5.5",
+    "oxlint": "^0.1.2",
+    "prettier": "^3.0.3",
+    "typescript": "^5.3.3",
+    "vitest": "^0.34.6",
+    "esbuild": "^0.20.0"
+  },
+  "packageManager": "pnpm@8.10.0"
+}
