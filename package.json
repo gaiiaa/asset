@@ -1,6 +1,6 @@
 {
   "name": "@gaiiaa/asset",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "lightweight typescript asset loader",
   "repository": "@gaiiaa/asset",
   "publishConfig": {
@@ -11,10 +11,6 @@
   "type": "module",
   "exports": {
     ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
-    },
-    "./lol": {
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
     }
