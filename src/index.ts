@@ -9,7 +9,7 @@ export type Asset<AssetType> = {
 	progress: number;
 };
 
-export enum AssetEvent {
+export enum Status {
 	LOADING = "loading",
 	LOADED = "loaded",
 	ERROR = "error",
@@ -25,8 +25,53 @@ export type AssetLoadFunction<T> = (
 ) => Promise<T> | T;
 
 export type AssetSubscribeCallback = (
-	callback: (message: AssetEvent) => void
+	callback: (message: Status) => void
 ) => void;
+
+export const memo = <T>(fn: () => T | Promise<T>): () => T => {
+	let started = false;
+	let cache: any;
+	return () => {
+		if (!started) {
+			started = true;
+			cache = fn();
+		}
+		return cache;
+	};
+};
+
+export const fetchWithProgress = async <T>(
+	url: string,
+	options: RequestInit & { onProgress?: (p: number) => void } = {}
+) => {
+	const response = await fetch(url, options);
+	const reader = response.body.getReader();
+	const contentLength = response.headers.get("Content-Length");
+	const total = contentLength ? parseInt(contentLength, 10) : undefined;
+	let received = 0;
+	const stream = new ReadableStream({
+		start(controller) {
+			const pump = () => {
+				reader.read().then(({ done, value }) => {
+					if (done) {
+						controller.close();
+						return;
+					}
+					received += value.byteLength;
+					options.onProgress && options.onProgress(received / total!);
+					controller.enqueue(value);
+					pump();
+				});
+			};
+			pump();
+		},
+	});
+
+	return new Response(stream, {
+		headers: response.headers,
+		status: response.status,
+	});
+};
 
 export const asset = <T>(
 	loader: AssetLoadFunction<T>,
@@ -50,13 +95,13 @@ export const asset = <T>(
 
 	const updateProgress = (progress: number) => {
 		p = progress;
-		subscribers.forEach((callback) => callback(AssetEvent.PROGRESS));
+		subscribers.forEach((callback) => callback(Status.PROGRESS));
 	};
 
 	const load = async () => {
 		if (loading) return;
 		loading = true;
-		subscribers.forEach((callback) => callback(AssetEvent.LOADING));
+		subscribers.forEach((callback) => callback(Status.LOADING));
 		try {
 			const result = loader(updateProgress);
 			if (result instanceof Promise) {
@@ -67,11 +112,11 @@ export const asset = <T>(
 			}
 		} catch (e) {
 			error = e;
-			subscribers.forEach((callback) => callback(AssetEvent.ERROR));
+			subscribers.forEach((callback) => callback(Status.ERROR));
 		}
 		loading = false;
 		p = 1;
-		subscribers.forEach((callback) => callback(AssetEvent.LOADED));
+		subscribers.forEach((callback) => callback(Status.LOADED));
 		return data;
 	};
 
@@ -114,23 +159,19 @@ export const loader = (...assets: LoaderInput[]) => {
 			0
 		);
 		progress = total === 0 ? 0 : loaded / total;
-		subscribers.forEach((callback) => callback(AssetEvent.PROGRESS));
+		subscribers.forEach((callback) => callback(Status.PROGRESS));
 	};
 
 	const addToLoader = (asset: Asset<unknown>) => {
 		_assets.push(asset);
 		asset.id && mapOfAssetsWithID.set(asset.id, asset);
-		asset.subscribe((status) => {
-      if(status === AssetEvent.PROGRESS){
-        updateProgress();
-      }
-		});
+		asset.subscribe(updateProgress);
 	};
 
 	const start = () => {
 		loading = true;
 		if (promise) return promise;
-		subscribers.forEach((callback) => callback(AssetEvent.LOADING));
+		subscribers.forEach((callback) => callback(Status.LOADING));
 		promise = Promise.all(
 			assets.map((asset) => {
 				if (asset instanceof Function) {
@@ -153,11 +194,11 @@ export const loader = (...assets: LoaderInput[]) => {
 		promise
 			.catch((e) => {
 				error = e;
-				subscribers.forEach((callback) => callback(AssetEvent.ERROR));
+				subscribers.forEach((callback) => callback(Status.ERROR));
 			})
 			.finally(() => {
 				loading = false;
-				subscribers.forEach((callback) => callback(AssetEvent.LOADED));
+				subscribers.forEach((callback) => callback(Status.LOADED));
 			});
 		return promise;
 	};
@@ -166,7 +207,7 @@ export const loader = (...assets: LoaderInput[]) => {
 		return mapOfAssetsWithID.get(id);
 	};
 
-	const subscribe = (callback: (message: AssetEvent) => void) => {
+	const subscribe = (callback: (message: Status) => void) => {
 		subscribers.add(callback);
 		return () => {
 			subscribers.delete(callback);
@@ -184,47 +225,4 @@ export const loader = (...assets: LoaderInput[]) => {
       return progress;
     },
 	};
-};
-
-export const memo = <T>(fn: () => T | Promise<T>) => {
-	let cache: any;
-	return () => {
-		if (cache === undefined) {
-			cache = fn();
-		}
-		return cache;
-	};
-};
-
-export const fetchWithProgress = async <T>(
-	url: string,
-	options: RequestInit & { onProgress?: (p: number) => void } = {}
-) => {
-	const response = await fetch(url, options);
-	const reader = response.body.getReader();
-	const contentLength = response.headers.get("Content-Length");
-	const total = contentLength ? parseInt(contentLength, 10) : undefined;
-	let received = 0;
-	const stream = new ReadableStream({
-		start(controller) {
-			const pump = () => {
-				reader.read().then(({ done, value }) => {
-					if (done) {
-						controller.close();
-						return;
-					}
-					received += value.byteLength;
-					options.onProgress && options.onProgress(received / total!);
-					controller.enqueue(value);
-					pump();
-				});
-			};
-			pump();
-		},
-	});
-
-	return new Response(stream, {
-		headers: response.headers,
-		status: response.status,
-	});
 };

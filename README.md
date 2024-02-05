@@ -1,7 +1,7 @@
 <div align="center">
 <br />
 
-![Archí](.github/banner.jpg)
+![Asset](.github/banner.jpg)
 
 <h3>Asset 🔨</h3>
 
